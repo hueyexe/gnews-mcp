@@ -1,7 +1,7 @@
 # gnews-mcp
 
 Google News headlines for AI agents. One static binary that any MCP-capable
-agent (Claude, Cursor, OpenCode, Hermes) can mount as a tool. No API key.
+agent can mount as a tool. No API key.
 
 Headlines come back as markdown, not XML or JSON, so the agent reads them
 directly.
@@ -29,35 +29,74 @@ little or no text.
 
 ## Install
 
-Build the binary:
+Build it:
 
 ```bash
 go build -o gnews-mcp .
 ```
 
-Then register it as a stdio MCP server. Claude Desktop and Cursor use this
-`mcpServers` shape:
+Then register it with your agent. `command` is an absolute path in every case,
+or the binary sits on the agent's PATH.
+
+### Claude Code
+
+```bash
+claude mcp add gnews -- /absolute/path/to/gnews-mcp
+```
+
+Or add it to `~/.claude.json` (user scope) or `.mcp.json` (project scope) under
+`mcpServers`:
+
+```json
+{ "mcpServers": { "gnews": { "command": "/absolute/path/to/gnews-mcp", "args": [] } } }
+```
+
+### Codex
+
+`~/.codex/config.toml`:
+
+```toml
+[mcp_servers.gnews]
+command = "/absolute/path/to/gnews-mcp"
+args = []
+```
+
+### Hermes
+
+`~/.hermes/config.yaml`:
+
+```yaml
+mcp_servers:
+  gnews:
+    command: "/absolute/path/to/gnews-mcp"
+    args: []
+```
+
+### OpenClaw
+
+`~/.openclaw/openclaw.json`:
+
+```json
+{ "mcpServers": { "gnews": { "command": "/absolute/path/to/gnews-mcp", "args": [] } } }
+```
+
+Or: `openclaw mcp add gnews --command /absolute/path/to/gnews-mcp`
+
+### OpenCode
+
+`opencode.json`:
 
 ```json
 {
-  "mcpServers": {
+  "mcp": {
     "gnews": {
-      "command": "/absolute/path/to/gnews-mcp",
-      "args": []
+      "type": "local",
+      "command": ["/absolute/path/to/gnews-mcp"],
+      "enabled": true
     }
   }
 }
 ```
-
-Config file locations:
-
-- Claude Desktop: `~/Library/Application Support/Claude/claude_desktop_config.json`
-  (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows)
-- Cursor: `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (per project)
-- OpenCode: the `mcp` key in `opencode.json`
-- Hermes and other clients: the same `mcpServers` block in their config
-
-`command` must be an absolute path, or the binary must sit on the agent's PATH.
 
 ## Build and test
 
