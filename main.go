@@ -1,5 +1,5 @@
 // Command gnews-mcp exposes Google News headlines to agents as an MCP server
-// over stdio. Tools: search_news, ticker_news, top_stories.
+// over stdio. Tools: search_news, ticker_news, top_stories, read_article.
 package main
 
 import (
@@ -21,12 +21,12 @@ func main() {
 }
 
 func run() error {
-	s := server.NewMCPServer("gnews-mcp", "1.0.0", server.WithToolCapabilities(true))
+	s := server.NewMCPServer("gnews-mcp", "1.1.0", server.WithToolCapabilities(true))
 
 	s.AddTool(
 		mcp.NewTool(
 			"search_news",
-			mcp.WithDescription("Search Google News and return recent headlines as compact markdown."),
+			mcp.WithDescription("Search Google News and return recent headlines with links as compact markdown."),
 			mcp.WithString("query", mcp.Required(), mcp.Description("Search query, e.g. \"Nvidia earnings\".")),
 			mcp.WithNumber("limit", mcp.Description("Max headlines (default 10, max 50).")),
 		),
@@ -35,7 +35,7 @@ func run() error {
 	s.AddTool(
 		mcp.NewTool(
 			"ticker_news",
-			mcp.WithDescription("Return recent Google News headlines for a stock ticker as compact markdown."),
+			mcp.WithDescription("Return recent Google News headlines with links for a stock ticker as compact markdown."),
 			mcp.WithString("ticker", mcp.Required(), mcp.Description("Stock ticker, e.g. \"MU\".")),
 			mcp.WithNumber("limit", mcp.Description("Max headlines (default 10, max 50).")),
 		),
@@ -44,10 +44,18 @@ func run() error {
 	s.AddTool(
 		mcp.NewTool(
 			"top_stories",
-			mcp.WithDescription("Return current top stories from Google News as compact markdown."),
+			mcp.WithDescription("Return current top stories with links from Google News as compact markdown."),
 			mcp.WithNumber("limit", mcp.Description("Max headlines (default 10, max 50).")),
 		),
 		handleTopStories,
+	)
+	s.AddTool(
+		mcp.NewTool(
+			"read_article",
+			mcp.WithDescription("Fetch an article URL and return its title and paragraphs as markdown. Best effort: paywalled or JavaScript-rendered pages may return little text."),
+			mcp.WithString("url", mcp.Required(), mcp.Description("Article URL.")),
+		),
+		handleReadArticle,
 	)
 
 	if err := server.ServeStdio(s); err != nil {
@@ -85,6 +93,19 @@ func handleTickerNews(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallTo
 //nolint:gocritic // request-by-value signature is mandated by the mcp-go SDK handler type
 func handleTopStories(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	out, err := gnews.TopStories(ctx, intArg(req.GetArguments(), 10))
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return textResult(out), nil
+}
+
+//nolint:gocritic // request-by-value signature is mandated by the mcp-go SDK handler type
+func handleReadArticle(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	rawURL := req.GetString("url", "")
+	if rawURL == "" {
+		return mcp.NewToolResultError("url is required"), nil
+	}
+	out, err := gnews.ReadArticle(ctx, rawURL)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}

@@ -1,63 +1,80 @@
 # gnews-mcp
 
-Google News headlines, delivered to AI agents as compact markdown over the
-[Model Context Protocol](https://modelcontextprotocol.io).
+Google News headlines for AI agents. One static binary that any MCP-capable
+agent (Claude, Cursor, OpenCode, Hermes) can mount as a tool. No API key.
 
-No API key. A single static binary that any MCP-capable agent (Claude, Cursor,
-OpenCode, Hermes, …) can mount as a tool.
+Headlines come back as markdown, not XML or JSON, so the agent reads them
+directly.
 
-## What
-
-Three tools:
+## Tools
 
 | Tool | Returns |
 |------|---------|
-| `search_news` | Recent Google News headlines for a free-text query |
-| `ticker_news` | Recent headlines for a stock ticker (auto-appends "stock") |
+| `search_news` | Headlines for a free-text query |
+| `ticker_news` | Headlines for a stock ticker |
 | `top_stories` | Current top stories |
+| `read_article` | The text of a given URL |
 
-Output is intentionally minimal — a short header plus one headline per line —
-so agents pay the fewest tokens for the signal:
+Each headline is one line: a clickable link and a date.
 
 ```markdown
 ### MU stock
 
-- Why Micron Stock and Its Memory Peers Are Falling - Barron's
-- AI chip stocks were riding high. Here's why Micron and others are now pulling back. - MarketWatch
+- [Why Micron Stock and Its Memory Peers Are Falling - Barron's](https://news.google.com/rss/articles/CBM...) (2026-08-18)
+- [AI chip stocks were riding high. Here's why Micron and others are now pulling back. - MarketWatch](https://...) (2026-08-18)
 ```
 
-## Why
+`read_article` is best effort. Paywalled or JavaScript-rendered pages may yield
+little or no text.
 
-LLM agents want *just the headlines* to reason over — not HTML, not XML, not
-JSON stuffed with metadata they don't use. Most news integrations require a paid
-API key or dump verbose structures. This is the minimal middle: a public RSS
-feed, parsed and re-rendered as token-efficient markdown.
+## Install
 
-## How to run
+Build the binary:
 
 ```bash
 go build -o gnews-mcp .
 ```
 
-Then register it as a stdio MCP server in your agent's config — e.g. Claude
-Desktop `claude_desktop_config.json`:
+Then register it as a stdio MCP server. Claude Desktop and Cursor use this
+`mcpServers` shape:
 
 ```json
 {
   "mcpServers": {
-    "gnews": { "command": "/path/to/gnews-mcp" }
+    "gnews": {
+      "command": "/absolute/path/to/gnews-mcp",
+      "args": []
+    }
   }
 }
 ```
 
+Config file locations:
+
+- Claude Desktop: `~/Library/Application Support/Claude/claude_desktop_config.json`
+  (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows)
+- Cursor: `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (per project)
+- OpenCode: the `mcp` key in `opencode.json`
+- Hermes and other clients: the same `mcpServers` block in their config
+
+`command` must be an absolute path, or the binary must sit on the agent's PATH.
+
+## Build and test
+
+```bash
+make build    # go build -o bin/gnews-mcp .
+make test     # go test -race ./...
+make lint     # golangci-lint run ./...
+```
+
 ## File map
 
-- `main.go` — MCP server: tool registration + JSON-RPC over stdio.
-- `internal/gnews/` — RSS fetch + markdown rendering (stdlib `net/http` + `encoding/xml`).
+- `main.go` — MCP server: tool registration + JSON-RPC over stdio
+- `internal/gnews/` — RSS fetch, markdown rendering, article extraction
 
 ## Does not own
 
-- It does not fetch full article bodies or do sentiment analysis — headlines only.
-- It keeps no history or state between calls.
-- It does not authenticate with Google; it reads the public RSS feed (personal,
-  non-commercial use — see the Google News RSS terms).
+- Headlines only; no sentiment, no full-article crawling beyond `read_article`
+- No history or state between calls
+- No Google authentication; it reads the public RSS feed (personal,
+  non-commercial use, see Google News RSS terms)

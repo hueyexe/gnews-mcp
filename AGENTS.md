@@ -3,15 +3,17 @@
 ## Project
 
 `gnews-mcp` is a single-binary MCP server that returns Google News headlines as
-compact markdown for LLM agents. No API key; the only runtime dependency is the
-Go stdlib for RSS fetching and parsing.
+compact markdown for LLM agents. No API key; RSS fetching and parsing use the
+Go stdlib, and article text extraction uses `golang.org/x/net/html`.
 
 ## Architecture
 
-- `main.go` registers three MCP tools (`search_news`, `ticker_news`, `top_stories`)
-  and serves them over stdio via `github.com/mark3labs/mcp-go`.
+- `main.go` registers four MCP tools (`search_news`, `ticker_news`,
+  `top_stories`, `read_article`) and serves them over stdio via
+  `github.com/mark3labs/mcp-go`.
 - `internal/gnews` fetches Google News RSS (`net/http`) and renders markdown
-  (`encoding/xml`). The pure `render` function is the testable core.
+  (`encoding/xml`). `render` is the testable core; `extractArticle` is the
+  best-effort article reader.
 
 ## Commands
 
