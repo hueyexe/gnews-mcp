@@ -1,0 +1,15 @@
+# Go
+/bin/
+*.test
+*.out
+vendor/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
